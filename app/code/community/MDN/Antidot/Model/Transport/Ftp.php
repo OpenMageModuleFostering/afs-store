@@ -22,11 +22,15 @@ class MDN_Antidot_Model_Transport_Ftp extends MDN_Antidot_Model_Transport_Abstra
     public function send($file) 
     {
         $ftpConfig = Mage::getStoreConfig('antidot/ftp');
+        if (!$ftpConfig)
+            throw new Exception('No ftp configuration set');
+        
         foreach($ftpConfig as $key =>  $config) {
             if(empty($config) && $key !== 'port') {
                 throw new Exception("The ftp $key is required");
             }
         }
+        Mage::log('Ftp connect with : '.$configString, null, 'antidot.log');
         
         if(!$fHandle = fopen($file, 'r')) {
             throw new Exception("Can't read file ".$file);
@@ -35,6 +39,7 @@ class MDN_Antidot_Model_Transport_Ftp extends MDN_Antidot_Model_Transport_Abstra
         $url = 'sftp://'
                 .$ftpConfig['login'].':'.$ftpConfig['password']
                 .'@upload.antidot.net/'.$ftpConfig['directory'].'/'.basename($file);
+        Mage::log('Ftp connect with : '.$url, null, 'antidot.log');
         
         $curl = curl_init();
         curl_setopt($curl, CURLOPT_URL, $url);
@@ -44,8 +49,9 @@ class MDN_Antidot_Model_Transport_Ftp extends MDN_Antidot_Model_Transport_Abstra
         curl_setopt($curl, CURLOPT_INFILESIZE, filesize($file));
         curl_exec($curl);
         
-        if (curl_errno($curl) != 0) {
-            throw new Exception("Can't send the file to ftp");
+        $errorNo = curl_errno($curl);
+        if ($errorNo != 0) {
+            throw new Exception("Can't send the file to ftp (error : ".$errorNo.")");
         }
     }
 }

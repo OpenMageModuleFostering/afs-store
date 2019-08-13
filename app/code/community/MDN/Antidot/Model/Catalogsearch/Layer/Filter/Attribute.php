@@ -19,4 +19,17 @@ class MDN_Antidot_Model_Catalogsearch_Layer_Filter_Attribute extends MDN_Antidot
     {
         return $attribute->getIsFilterableInSearch();
     }
+
+    /**
+     * Override getName method to return facet name in the last AFS response
+     *
+     * @return mixed
+     */
+    public function getName()
+    {
+        $name = Mage::helper('Antidot')->translateFacetName($this->getCode(), parent::getName());
+
+
+        return $name;
+    }
 }

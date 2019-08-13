@@ -139,7 +139,7 @@ class MDN_Antidot_Model_Search_Suggest extends MDN_Antidot_Model_Search_Abstract
      */
     protected function buildUrl($query) 
     {
-        return sprintf(
+        $url = sprintf(
                 static::URI, 
                 $this->afsHost, 
                 $this->afsService, 
@@ -147,7 +147,7 @@ class MDN_Antidot_Model_Search_Suggest extends MDN_Antidot_Model_Search_Abstract
                 $this->getFeeds(), 
                 urlencode($query),
                 $this->getSession());
-        
+        return $url;
     }
     
     /**
@@ -259,7 +259,7 @@ class MDN_Antidot_Model_Search_Suggest extends MDN_Antidot_Model_Search_Abstract
         $feeds = '';
         foreach($this->feed as $feed) {
             $id = substr($feed['prefix'], 0, 18) !== 'featured_products_' ? Mage::app()->getStore()->getWebsiteId() : Mage::app()->getStore()->getId();
-            $feeds.= empty($feeds) ? '' : '-';
+            $feeds.= empty($feeds) ? '' : '&afs:feed=';     //for AFS engine v7.7
             $feeds.= sprintf($feed['tpl'], $id, $lang);
         }
         

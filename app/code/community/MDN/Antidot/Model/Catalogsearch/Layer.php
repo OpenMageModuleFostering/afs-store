@@ -48,14 +48,15 @@ class MDN_Antidot_Model_Catalogsearch_Layer extends Mage_CatalogSearch_Model_Lay
         $facets = array();
         if($config = Mage::getStoreConfig('antidot/engine/facets')) {
             $config = unserialize($config);
+
             foreach($config as $facet) {
                 list($id, $label) = explode('|', $facet['facet']);
-                $key = $facet['order'].'_'.$id;
+                $key = sprintf('%02d', $facet['order']).'_'.$id;    //sptrinf to ensure order : 10 is after 09
                 $facets[$key] = array('id' => $id, 'label' => $label);
             }
         }
         ksort($facets);
-        
+
         $attributes = array();
         foreach($facets as $facet) {
             $attributes[] = new MDN_Antidot_Model_Catalogsearch_Resource_Attribute($facet);

@@ -150,6 +150,7 @@ class MDN_Antidot_Model_Resource_Engine_Antidot extends MDN_Antidot_Model_Resour
      */
     protected function prepareFilters($filters)
     {
+
         $result = array();
         if (is_array($filters) && !empty($filters)) {
             foreach ($filters as $field => $value) {
@@ -160,7 +161,12 @@ class MDN_Antidot_Model_Resource_Engine_Antidot extends MDN_Antidot_Model_Resour
                     } else {
                         $fieldCondition = array();
                         foreach ($value as $part) {
-                            $fieldCondition = array($field => explode(',', $part));
+                            //explode values if facet is multi select
+                            $isMultiSelect = $this->isMultiSelect($field);
+                            if ($isMultiSelect)
+                                $fieldCondition = array($field => explode(',', $part));
+                            else
+                                $fieldCondition = array($field => $part);
                             break;
                         }
                     }
@@ -171,8 +177,23 @@ class MDN_Antidot_Model_Resource_Engine_Antidot extends MDN_Antidot_Model_Resour
                 $result[] = $fieldCondition;
             }
         }
-        
+
         return $result;
+    }
+
+    /**
+     * Return true if a facet allows multi select
+     *
+     * @param $field
+     */
+    public function isMultiSelect($field)
+    {
+        $facets = Mage::helper('Antidot')->getFacetsFilter();
+
+        if (isset($facets[$field]))
+            return $facets[$field]['multiple'];
+
+        return false;
     }
 
     /**

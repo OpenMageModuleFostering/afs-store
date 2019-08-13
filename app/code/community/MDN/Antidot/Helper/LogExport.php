@@ -28,9 +28,13 @@ class MDN_Antidot_Helper_LogExport extends Mage_Core_Helper_Abstract
      */
     public function add($reference, $type, $element, $begin, $end, $items, $status, $error = '')
     {
+        $error = str_replace("'", "", $error);
+        if (strlen($error) > 254)
+            $error = substr ($error, 0, 254);
+
         $query = "INSERT INTO antidot_export(reference, type, element, begin_at, end_at, items_processed, status, error) "
                . "VALUES('".$reference."', '".$type."', '".$element."', '".date('Y-m-d H:i:s', $begin)."', '".date('Y-m-d H:i:s', $end)."', ".(int)$items.", '".$status."', '".$error."')";
-        
+
         Mage::getSingleton('core/resource')->getConnection('core_write')->query($query);
     }
     
@@ -60,7 +64,7 @@ class MDN_Antidot_Helper_LogExport extends Mage_Core_Helper_Abstract
     public function getAllLastGeneration($sinceHour = 24)
     {
         $since = date('Y-m-d H:i:s', time()-(int)$sinceHour*60*60);
-        $query = "SELECT reference, type, element, begin_at, items_processed, status "
+        $query = "SELECT reference, type, element, begin_at, items_processed, status, error "
                 . "FROM antidot_export "
                 . "WHERE begin_at > '".$since."' "
                 . "ORDER BY begin_at DESC";

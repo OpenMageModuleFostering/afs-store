@@ -30,9 +30,12 @@ class MDN_Antidot_Model_System_Config_Facet
                 $this->options = array();
                 foreach($search->getFacets() as $facetId => $facet) {
                     if($typeExclude === null || $facet->get_type() !== $typeExclude) {
-                        $this->options[] = array('value' => $facetId.'|'.$facet->label, 'label' => $facet->label.' ('.$facet->get_type().')');
+                        $this->options[] = array('value' => $facetId.'|'.$facet->label, 'label' => $facetId.' ('.$facet->get_type().')');
                     }
                 }
+
+                //sort facets
+                usort($this->options, array("MDN_Antidot_Model_System_Config_Facet", "sortFacetPerLabel"));
 
                 return $this->options;
             } catch(Exception $e) {
@@ -41,5 +44,15 @@ class MDN_Antidot_Model_System_Config_Facet
         }
         
         return $this->options;
+    }
+
+    public static function sortFacetPerLabel($a, $b)
+    {
+        $al = $a['label'];
+        $bl = $b['label'];
+        if ($al == $bl) {
+            return 0;
+        }
+        return ($al > $bl) ? +1 : -1;
     }
 }

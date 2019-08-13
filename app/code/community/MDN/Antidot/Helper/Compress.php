@@ -24,26 +24,37 @@ class MDN_Antidot_Helper_Compress extends Mage_Core_Helper_Abstract {
      */
     public function zip($files, $zipFile) 
     {
+        Mage::log('Start zip of '.count($files).' files to '.$zipFile, null, 'antidot.log');
+        
         $files = (array)$files;
         try {
             if(class_exists('ZipArchive')) {
+                Mage::log('ZipArchive exists', null, 'antidot.log');
                 $zip = new ZipArchive();
                 if(!$zip->open($zipFile, ZipArchive::CREATE)) {
                     throw new Exception("cannot open ".$zipFile." for writing");
                 }
 
                 foreach($files as $file) {
+                    Mage::log('Add '.$file.' to archive', null, 'antidot.log');
                     $zip->addFile($file, basename($file));
                 }
                 $zip->close($zip);
             }
+            else
+            {
+                throw new Exception('Zip archive is not installed on your server');
+                Mage::log('ZipArchive DOES NOT exist', null, 'antidot.log');
+            }
         } catch (Exception $e) {
+            Mage::log('Zip exception : '.$e->getMessage(), null, 'antidot.log');
             $files = array_map('basename', $files);
             exec('cd /tmp && zip '.$zipFile.' '.implode(' ', $files));
         }
         
         if(!file_exists($zipFile)) {
-            throw new Exception('Could not zip the file');
+            Mage::log('zip file '.$zipFile.' doest no exist', null, 'antidot.log');
+            throw new Exception('Could not zip the file at '.$zipFile);
         }
     }
 }

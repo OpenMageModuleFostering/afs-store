@@ -15,6 +15,8 @@
  */
 class MDN_Antidot_Model_Search_Search extends MDN_Antidot_Model_Search_Abstract
 {
+    public static $lastSearchTranslations = array();
+
     /**
      * @var string Language used
      */
@@ -88,6 +90,12 @@ class MDN_Antidot_Model_Search_Search extends MDN_Antidot_Model_Search_Abstract
         $resultAntidot->promote            = $this->getPromoteFromResult($results);
         $resultAntidot->replyset           = $this->getReplySetFromResult($results);
         $resultAntidot->replysetCategories = $this->getReplySetFromResult($results, 'Categories');
+
+        //save translations
+        foreach($resultAntidot->replyset->facets as $item)
+        {
+            self::$lastSearchTranslations[$item->id] = $item->label;
+        }
 
         return $resultAntidot;
     }
@@ -197,7 +205,7 @@ class MDN_Antidot_Model_Search_Search extends MDN_Antidot_Model_Search_Abstract
                         $query = $query->add_filter($key, $values);
                     }
                 } else {
-                    $query = $query->add_filter($key, $value);
+                    //$query = $query->add_filter($key, $value);
                 }
             }
         }
@@ -241,13 +249,14 @@ class MDN_Antidot_Model_Search_Search extends MDN_Antidot_Model_Search_Abstract
         $multiSelectionFacets = array();
         $monoSelectionFacets  = array();
         foreach($facets as $facetId => $facet) {
+            if (!$facetId)
+                continue;
             if($facet['multiple'] === '1') {
                 $multiSelectionFacets[] = $facetId;
             } else {
                 $monoSelectionFacets[] = $facetId;
             }
         }
-
 
         if(!empty($multiSelectionFacets)) {
             $query = call_user_func_array(array($query, 'set_multi_selection_facets'), $multiSelectionFacets);

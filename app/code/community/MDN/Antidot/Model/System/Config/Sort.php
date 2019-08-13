@@ -36,7 +36,7 @@ class MDN_Antidot_Model_System_Config_Sort
             $this->initMarketingFields();
             $options = array();
             $options[] = array('value' => 'afs:relevance|Relevance', 'label' => Mage::helper('Antidot')->__('Relevance'));
-            $options[] = array('value' => 'position|Position', 'label' => Mage::helper('Antidot')->__('Position'));
+            //$options[] = array('value' => 'position|Position', 'label' => Mage::helper('Antidot')->__('Position'));
             $options[] = array('value' => 'name|Name', 'label' => Mage::helper('Antidot')->__('Name'));
 
             foreach($this->marketingFields as $field => $label) {

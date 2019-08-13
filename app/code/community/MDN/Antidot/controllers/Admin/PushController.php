@@ -30,7 +30,14 @@ class MDN_Antidot_Admin_PushController extends Mage_Adminhtml_Controller_Action
      */
     public function ProductAction()
     {
-        Mage::getModel('Antidot/Observer')->catalogFullExport();
+        try
+        {
+            Mage::getModel('Antidot/Observer')->catalogFullExport();
+        }
+        catch(Exception $ex)
+        {
+            Mage::getSingleton('adminhtml/session')->addError(mage::helper('Antidot')->__('An error occured : %s', $ex->getMessage()));
+        }
         $this->_redirectReferer();
     }
 }

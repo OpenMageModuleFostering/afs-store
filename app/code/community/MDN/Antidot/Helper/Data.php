@@ -187,8 +187,8 @@ class MDN_Antidot_Helper_Data extends Mage_Core_Helper_Abstract
         $mail->setToEmail($email);
         $mail->setBody($message);
         $mail->setSubject(Mage::getStoreConfig('system/website/name').': '. $subject);
-        $mail->setFromEmail('no-reply@boostmyshop.com');
-        $mail->setFromName("BoostMyShop");
+        $mail->setFromEmail('no-reply@antidot.net');
+        $mail->setFromName("AFSStore for Magento");
         $mail->setType('text');
 
         try {
@@ -199,4 +199,22 @@ class MDN_Antidot_Helper_Data extends Mage_Core_Helper_Abstract
             Mage::getSingleton('core/session')->addError('Unable to send.');
         }
     }
+
+    /**
+     * Translate facet name
+     *
+     * @param $facetcode
+     * @param $defaultValue
+     * @return mixed
+     */
+    public function translateFacetName($facetcode, $defaultValue)
+    {
+        $model = Mage::getModel('Antidot/Search_Search');
+
+        $label = $defaultValue;
+        if (isset($model::$lastSearchTranslations[$facetcode]))
+            $label = $model::$lastSearchTranslations[$facetcode];
+        return $label;
+    }
+
 }

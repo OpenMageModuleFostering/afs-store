@@ -26,8 +26,8 @@ class MDN_Antidot_Model_Search_Abstract extends Mage_Core_Model_Abstract
      */
     public function _construct()
     {
-        set_include_path(get_include_path().':'.MAGENTO_ROOT.'/lib/antidot');
-        require_once "afs_lib.php";
+        //set_include_path(get_include_path().':'.MAGENTO_ROOT.DS.'lib'.DS.'antidot'.DS);
+        require_once "antidot/afs_lib.php";
         
         if($config = Mage::getStoreConfig('antidot/web_service')) {
             $this->afsHost    = $config['host'];

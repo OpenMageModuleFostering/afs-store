@@ -31,6 +31,7 @@ class MDN_Antidot_Block_System_Config_Html_Export extends Mage_Adminhtml_Block_S
                                 .'<th>'.Mage::helper('Antidot')->__('Element').'</th>'
                                 .'<th>'.Mage::helper('Antidot')->__('Products').'</th>'
                                 .'<th>'.Mage::helper('Antidot')->__('Status').'</th>'
+                                .'<th>'.Mage::helper('Antidot')->__('Msg').'</th>'
                             .'</tr>'
                         .'</thead>'
                         .'<tbody>'
@@ -41,7 +42,7 @@ class MDN_Antidot_Block_System_Config_Html_Export extends Mage_Adminhtml_Block_S
         ;
         
         $rows = '';
-        $rowExport = '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>';
+        $rowExport = '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>';
         foreach(Mage::helper('Antidot/LogExport')->getAllLastGeneration() as $export) {
             $rows.= sprintf(
                 $rowExport, 
@@ -50,7 +51,8 @@ class MDN_Antidot_Block_System_Config_Html_Export extends Mage_Adminhtml_Block_S
                 $export['type'],
                 $export['element'],
                 $export['items_processed'],
-                $export['status']
+                $export['status'],
+                $export['error']
             );
         }
         

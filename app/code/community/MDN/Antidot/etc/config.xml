@@ -18,7 +18,7 @@
     </crontab>
     <modules>
         <MDN_Antidot>
-            <version>1.0.2</version>
+            <version>1.0.6</version>
         </MDN_Antidot>
     </modules>
     <global>
@@ -184,6 +184,9 @@
     <xsl:variable name="categories-title">Categories</xsl:variable>
     <xsl:variable name="brands-title">Brands</xsl:variable>
 
+    <!-- Default search url: customize if needed -->
+    <xsl:variable name="searchUrl">/index.php/catalogsearch/result/?q=</xsl:variable>
+
     <!-- Main HTML template -->
     <xsl:template match="afs:replies">
         <ul class="ajax-search">
@@ -195,7 +198,7 @@
                     </li>
                     <xsl:apply-templates select="afs:replySet"/>
                     <a>
-                        <xsl:attribute name="href">/index.php/catalogsearch/result/?q=<xsl:value-of
+                        <xsl:attribute name="href"><xsl:value-of select="$searchUrl"/><xsl:value-of
                                 select="afs:header/afs:query/@textQuery"/>*</xsl:attribute>
                         <xsl:value-of select="$see-more-products"/>
                     </a>
@@ -223,8 +226,21 @@
                 <xsl:when test="starts-with(@name,'brands')">
                     <xsl:value-of select="$brands-title"/>
                 </xsl:when>
+                <xsl:when test="starts-with(@name,'property_')">
+                    <xsl:call-template name="upperCaseFirstLetter">
+                        <xsl:with-param name="str">
+                            <xsl:value-of
+                                select="translate(substring(substring-after(@name,'property_'),1,string-length(@name)-14),'_',' ')"
+                            />
+                        </xsl:with-param>
+                    </xsl:call-template>
+                </xsl:when>
                 <xsl:otherwise>
-                    <xsl:value-of select="substring-before(@name,'_')"/>
+                    <xsl:call-template name="upperCaseFirstLetter">
+                        <xsl:with-param name="str">
+                            <xsl:value-of select="substring-before(@name,'_')"/>
+                        </xsl:with-param>
+                    </xsl:call-template>
                 </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
@@ -242,13 +258,62 @@
             <!-- Show thumbnail if any  -->
             <xsl:apply-templates select="afs:option[@key='url_thumbnail']" mode="url_thumbnail"/>
             <a>
-                <xsl:apply-templates select="afs:option[@key='url']" mode="href"/>
+                <!-- Direct link if available, else search link (with filter if available) -->
+                <xsl:choose>
+                    <!-- Direct link to target page -->
+                    <xsl:when test="afs:option[@key='url']">
+                        <xsl:apply-templates select="afs:option[@key='url']" mode="href"/>
+                    </xsl:when>
+                    <!-- Query with filter (avoid noisy results) -->
+                    <xsl:when test="afs:option[@key='id'] or parent::afs:replySet[starts-with(@name,'property_')]">
+                        <xsl:variable name="filterName">
+                            <xsl:choose>
+                                <xsl:when
+                                    test="parent::afs:replySet[starts-with(@name,'property_')]">
+                                    <xsl:value-of
+                                        select="substring(substring-after(parent::afs:replySet/@name,'property_'),1,string-length(parent::afs:replySet/@name)-14)"
+                                    />
+                                </xsl:when>
+                                <xsl:otherwise>
+                                    <xsl:value-of
+                                        select="substring(parent::afs:replySet/@name,1,string-length(parent::afs:replySet/@name)-5)"
+                                    />
+                                </xsl:otherwise>
+                            </xsl:choose>
+                        </xsl:variable>
+                        <xsl:attribute name="href">
+                            <xsl:value-of select="$searchUrl"/>
+                            <!-- We set plain text query because empty query is not allowed -->
+                            <xsl:value-of select="@label"/>
+                            <xsl:text>&amp;</xsl:text>
+                            <xsl:value-of select="$filterName"/>
+                            <xsl:text>=%22</xsl:text>
+                            <xsl:choose>
+                                <xsl:when
+                                    test="afs:option[@key='id' and normalize-space(@value)!='']">
+                                    <xsl:value-of select="afs:option[@key='id']/@value"/>
+                                </xsl:when>
+                                <xsl:otherwise>
+                                    <xsl:value-of select="@label"/>
+                                </xsl:otherwise>
+                            </xsl:choose>
+                            <xsl:text>%22</xsl:text>
+                        </xsl:attribute>
+                    </xsl:when>
+                    <!-- Basic text query -->
+                    <xsl:otherwise>
+                        <xsl:attribute name="href">
+                            <xsl:value-of select="$searchUrl"/>
+                            <xsl:value-of select="@label"/>
+                        </xsl:attribute>
+                    </xsl:otherwise>
+                </xsl:choose>
                 <xsl:attribute name="title">
                     <xsl:value-of select="@label"/>
                 </xsl:attribute>
-                <!-- Apply basic or product template -->
-                <xsl:apply-templates
-                    select="self::node()[afs:option[@key='url'] and not(afs:option[@key='price'])]"
+                <!-- Choose which template to apply for displaying suggestion:
+                     basic (label only) or product (with thumbnbail, price, etc.) -->
+                <xsl:apply-templates select="self::node()[not(afs:option[@key='price'])]"
                     mode="basic"/>
                 <xsl:apply-templates select="self::node()[afs:option[@key='price']]" mode="product"
                 />
@@ -309,7 +374,17 @@
         </div>
     </xsl:template>
 
+    <!-- Translate first letter of a string into a upper case if it was lower -->
+    <xsl:template name="upperCaseFirstLetter">
+        <xsl:param name="str"/>
+        <xsl:variable name="vUpper" select="'ABCDEFGHIJKLMNOPQRSTUVWXYZ'"/>
+        <xsl:variable name="vLower" select="'abcdefghijklmnopqrstuvwxyz'"/>
+        <xsl:value-of
+            select="concat(translate(substring($str,1,1),$vLower,$vUpper),substring($str,2))"/>
+    </xsl:template>
+
 </xsl:stylesheet>
+
 ]]>
                 </template>
                 <suggest_xml>
@@ -381,7 +456,7 @@
                 <models>model</models>
                 <manufacturer>manufacturer</manufacturer>
                 <gender>gender</gender>
-                <description>a:1:{s:18:"_1390211203389_389";a:1:{s:5:"value";s:11:"description";}}</description>
+                <description>a:1:{s:18:"_1390211203389_389";a:1:{s:5:"value";s:17:"short_description";}}</description>
                 <keywords>meta_keyword</keywords>
                 <identifier>a:1:{s:18:"_1389092688608_608";a:1:{s:5:"value";s:3:"sku";}}</identifier>
             </fields_product>

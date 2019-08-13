@@ -43,9 +43,10 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
 
     protected $productMultiple = array(
         Mage_Catalog_Model_Product_Type::TYPE_BUNDLE,
+        Mage_Catalog_Model_Product_Type::TYPE_GROUPED,
         Mage_Catalog_Model_Product_Type::TYPE_CONFIGURABLE
     );
-    
+
     /**
      * Write the xml file
      * 
@@ -81,13 +82,15 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
                 ->joinField('qty',
                             'cataloginventory/stock_item',
                             'qty',
-                            'product_id = entity_id')
+                            'product_id = entity_id',
+                            '{{table}}.stock_id = 1')
             ;
 
             foreach($collection as $product) {
                 if($context['langs'] > 1) {
                     $store = current($this->getProductStores($product, $context));
-                    $product = Mage::getModel('catalog/product')->setStoreId($store->getId())->load($product->getId());
+                    if ($store)
+                        $product = Mage::getModel('catalog/product')->setStoreId($store->getId())->load($product->getId());
                 }
                 $this->writeProduct($product, $context);
             }
@@ -136,7 +139,6 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
     /**
      * Write the xml header
      * 
-     * @param array $context
      */
     protected function writeHeader($context)
     {
@@ -156,6 +158,10 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
     protected function writeProduct($product, $context)
     {
         $stores = $this->getProductStores($product, $context);
+        
+        //skip product if no websites
+        if (count($stores) == 0)
+            return;
 
         $this->xml->push('product', array('id' => $product->getId(), 'xml:lang' => $this->lang, 'autocomplete' => $this->autoCompleteProducts));
 
@@ -208,20 +214,21 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
             Mage::app()->setCurrentStore($store->getId());
 
             $this->xml->push('store', array('id' => $store->getId(), 'name' => $store->getName()));
-                $storeContext['currency'] = $store->getCurrentCurrencyCode();
-                $storeContext['country']  = $this->getStoreLang($store->getId());
+            $storeContext['currency'] = $store->getCurrentCurrencyCode();
+            $storeContext['country']  = $this->getStoreLang($store->getId());
 
-                $operations = $this->getOperations($product, $store);
-                $this->writePrices($variantProduct, $storeContext, $store, $operations);
-                $this->writeMarketing($variantProduct, $operations);
+            $operations = $this->getOperations($product, $store);
+            $this->writePrices($variantProduct, $product, $storeContext, $store, $operations);
+            $this->writeMarketing($variantProduct, $operations);
 
-                $isAvailable = $variantProduct->isSalable() || (in_array($variantProduct->getTypeId(), $this->productMultiple) && $product->isInStock());
-                $this->xml->element('is_available', (int)$isAvailable);
+            $isAvailable = $variantProduct->isSalable() || (in_array($variantProduct->getTypeId(), $this->productMultiple) && $product->isInStock());
+            $this->xml->element('is_available', (int)$isAvailable);
 
-                $qty = Mage::getModel('cataloginventory/stock_item')->loadByProduct($variantProduct)->getQty();
-                $this->xml->element('stock', (int)$qty);
+            $qty = Mage::getModel('cataloginventory/stock_item')->loadByProduct($variantProduct)->getQty();
+            $qty = ($qty > 0 ? $qty : 0);
+            $this->xml->element('stock', (int)$qty);
 
-                $this->xml->element('url', $this->xml->encloseCData($variantProduct->getProductUrl()));
+            $this->xml->element('url', $this->xml->encloseCData($variantProduct->getProductUrl()));
             $this->xml->pop();
         }
         $this->xml->pop();
@@ -367,7 +374,7 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
         if(count($categories) > 0) {
             $this->xml->push('classification');
             foreach($categories as $category) {
-                $this->writeCategory($category);
+                    $this->writeCategory($category);
             }
             $this->xml->pop();
         }
@@ -382,6 +389,9 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
      */
     protected function writeCategory($category, $first = true, &$level = 0)
     {
+        if($category->getParentId() == 1 || $category->getParentId() == 0)
+            return false;
+        
         if($category->getParentId() !== 1 && $category->getParentId() !== 0) {
             $level++;
             if(!$this->writeCategory($this->getCategoryById($category->getParentId()), false, $level)) {
@@ -389,6 +399,7 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
             }
         }
 
+            
         $attributes = array('id' => $category->getId(), 'label' => $category->getName(), 'url' => $this->getUri($category->getUrl()));
         if ($category->getImage()) {
             $attributes['img'] = $category->getImage();
@@ -431,6 +442,8 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
         $categories = $product->getCategoryCollection()->setStoreId($product->getStoreId())->addAttributeToSelect('name')->addAttributeToSelect('image')->addAttributeToSelect('url_key');
         $productCategories = array();
         foreach($categories as $category) {
+            if (($category->getparent_id() == 0) || ($category->getparent_id() == 1))
+                continue;
             $productCategories[$category->getId()] = $category;
             $parentCategory[] = $category->getParentId();
         }
@@ -451,7 +464,7 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
      */
     protected function writeMaterials($product)
     {
-        if(!empty($this->fields['materials']) && $materials = $this->getField($product, $this->fields['materials'])) {
+        if(!empty($this->fields['materials']) && $materials = $product->getAttributeText($this->fields['materials'])) {
             $this->xml->push('materials');
             $this->xml->element('material', $this->xml->encloseCData($materials));
             $this->xml->pop();
@@ -516,7 +529,7 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
         }
     }
     
-    /**
+  /**
      * Write the product properties
      * 
      * @param Product $product
@@ -529,24 +542,45 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
             foreach($this->fields['properties'] as $property) {
                 $id = $this->getField($product, $property['value']);
                 if($id !== null) {
-                    $value = $product->getResource()->getAttribute($property['value'])->getFrontend()->getValue($product);
-                    $label = $product->getResource()->getAttribute($property['value'])->getStoreLabel();
-                    $optionName = $value;
-                    if(!empty($this->propertyLabel[$property['value']]['options'][$id]['per_store'][current($stores)->getId()])) {
-                        $optionName = $this->propertyLabel[$property['value']]['options'][$id]['per_store'][current($stores)->getId()];
+                    
+                    
+                    $attribute = $product->getResource()->getAttribute($property['value']);
+                    $value = $attribute->getFrontend()->getValue($product);
+                    $label = $attribute->getStoreLabel();
+                    
+                    $labels = array();
+                    switch($attribute->getfrontend_input())
+                    {
+                        case 'multiselect':
+                            $values = explode(',', $value);
+                            foreach($values as $value)
+                            {
+                                $value = trim($value);
+                                $properties[] = array(
+                                    'name' => $property['value'],
+                                    'display_name' => substr($label, 0, 79),
+                                    'label' => substr($value, 0, 79),
+                                    'autocomplete' => ($property['autocomplete'] == 1 ? 'on' : 'off'));
+                            }
+                            break;
+                        default:
+                            $optionName = $value;
+                            if(!empty($this->propertyLabel[$property['value']]['options'][$id]['per_store'][current($stores)->getId()])) {
+                                $optionName = $this->propertyLabel[$property['value']]['options'][$id]['per_store'][current($stores)->getId()];
+                            }
+                            $value = is_bool($value) ? (int)$value : $value;
+                            $properties[] = array(
+                                'name' => $property['value'],
+                                'display_name' => substr($label, 0, 79),
+                                'label' => substr($optionName, 0, 79),
+                                'autocomplete' => ($property['autocomplete'] == 1 ? 'on' : 'off'));
+                            break;
                     }
 
-                    $value = is_bool($value) ? (int)$value : $value;
-                    $properties[] = array(
-                        'name' => $property['value'],
-                        'display_name' => substr($label, 0, 79),
-                        'label' => substr($optionName, 0, 79),
-                        'autocomplete' => ($property['autocomplete'] == 1 ? 'on' : 'off')
-                    );
                 }
             }
         }
-
+        
         if(!empty($properties)) {
             $this->xml->push('properties');
             foreach($properties as $property) {
@@ -561,9 +595,9 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
      * 
      * @param Product $product
      */
-    protected function writePrices($product, $context, $store, $operations)
+    protected function writePrices($product, $parentProduct, $context, $store, $operations)
     {
-        $prices = current($this->getPrices($product->getId(), $store->getWebsiteId()));
+        $prices = ($this->getPrices($parentProduct->getId(), $store->getWebsiteId()));
 
         if($product->getTypeID() === Mage_Catalog_Model_Product_Type::TYPE_BUNDLE) {
             $prices['price'] = $prices['min_price'];
@@ -625,7 +659,25 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
                . "AND customer_group_id = 0 "
         ;
 
-        return Mage::getSingleton('core/resource')->getConnection('core_read')->fetchAll($query);
+        $result = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchRow($query);
+
+        if (($result['min_price']))
+        {
+            if (!($result['price']))
+                $result['price'] = $result['min_price'];
+            if (!($result['final_price']))
+                $result['final_price'] = $result['min_price'];
+        }
+
+        if ((!$result['min_price']) && (!$result['price']) && (!$result['final_price']))
+        {
+            $product = Mage::getModel('catalog/product')->load($productId);
+            $result['min_price'] = $product->getPrice();
+            $result['price'] = $product->getPrice();
+            $result['final_price'] = $product->getPrice();
+        }
+
+        return $result;
     }
     
     /**
@@ -705,16 +757,25 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
         $this->writeVariant($product, $product, $stores);
         $this->xml->pop();
 
-        if($product->getTypeID() === Mage_Catalog_Model_Product_Type::TYPE_CONFIGURABLE) {
-            $variantProducts = $product->getTypeInstance(true)->getUsedProducts(null, $product);
-            if(count($variantProducts) > 0) {
-                foreach($variantProducts as $variantProduct) {
-                    $this->xml->push('variant', array('id' => $variantProduct->getId()));
-                    $this->writeVariant($variantProduct, $product, $stores);
-                    $this->xml->pop();
-                }
+        $variantProducts = array();
+        switch($product->getTypeID())
+        {
+            case Mage_Catalog_Model_Product_Type::TYPE_CONFIGURABLE:
+                $variantProducts = $product->getTypeInstance(true)->getUsedProducts(null, $product);
+                break;
+            case Mage_Catalog_Model_Product_Type::TYPE_GROUPED:
+                $variantProducts = $product->getTypeInstance(true)->getAssociatedProducts($product);
+                break;
+        }
+
+        if(count($variantProducts) > 0) {
+            foreach($variantProducts as $variantProduct) {
+                $this->xml->push('variant', array('id' => $variantProduct->getId()));
+                $this->writeVariant($variantProduct, $product, $stores);
+                $this->xml->pop();
             }
         }
+
         $this->xml->pop();
     }
     
@@ -727,6 +788,8 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
      */
     protected function writeVariant($variantProduct, $product, $stores)
     {
+        $this->xml->element('name', $this->xml->encloseCData($variantProduct->getName()));
+        $this->writeDescriptions($variantProduct);
         $this->writeStore($product, $stores, $variantProduct);
         $this->writeIdentifiers($variantProduct);
         $this->writeProperties($variantProduct, $stores);
@@ -812,7 +875,7 @@ class MDN_Antidot_Model_Export_Product extends MDN_Antidot_Model_Export_Abstract
             }
             $collection->addAttributeToFilter('updated_at', array('gteq' => $this->lastGeneration));
         }
-        
+
         return $collection->getAllIds();
     }
 }

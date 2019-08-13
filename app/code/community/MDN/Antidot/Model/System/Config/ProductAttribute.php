@@ -76,7 +76,8 @@ class MDN_Antidot_Model_System_Config_ProductAttribute extends Mage_Eav_Model_En
         $entityTypeId = Mage::getModel('eav/entity_type')->loadByCode('catalog_product')->getId();
         $attributes   = Mage::getResourceModel('eav/entity_attribute_collection')
             ->setEntityTypeFilter($entityTypeId)
-            ->addFieldToFilter('backend_type', array('neq' => 'static'));
+            ->addFieldToFilter('backend_type', array('neq' => 'static'))
+            ->addFieldToFilter('attribute_code', array('neq' => 'price'));
             
         if($type !== null) {
             $attributes->addFieldToFilter('frontend_input', array('in' => (array)$type));

@@ -56,8 +56,8 @@ class MDN_Antidot_Model_Observer extends Mage_Core_Model_Abstract
      */
     protected function initTmpDirectory()
     {
-        $this->tmpDirectory = sys_get_temp_dir().'/antidot/';
-        $this->tmpErrorDirectory = $this->tmpDirectory.'error/';
+        $this->tmpDirectory = sys_get_temp_dir().DS.'antidot'.DS;
+        $this->tmpErrorDirectory = $this->tmpDirectory.DS.'error'.DS;
         if(!is_dir($this->tmpDirectory)) {
             mkdir($this->tmpDirectory, 0775);
             mkdir($this->tmpErrorDirectory, 0775);
@@ -102,57 +102,72 @@ class MDN_Antidot_Model_Observer extends Mage_Core_Model_Abstract
         $this->log('start');
         $log['begin'] = time();
         $log['items'] = 0;
+        $log['error'] = array();
+        $log['reference'] = '';
         
-        $files = array();
-        foreach($this->getDefaultContext() as $context) {
-            $this->log('generate '.$exportModel::TYPE.' '.$context['owner']);
-            $context['store_id'] = array_keys($context['stores']);
-            
-            $filename = $this->tmpDirectory.sprintf($exportModel::FILENAME_XML, $context['lang']);
-            $items    = $exportModel->writeXml($context, $filename, $type);
-            if($items === 0) {
-                continue;
+        try
+        {
+        
+            $files = array();
+            foreach($this->getDefaultContext() as $context) {
+                $this->log('generate '.$exportModel::TYPE.' '.$context['owner']);
+                $context['store_id'] = array_keys($context['stores']);
+
+                $filename = $this->tmpDirectory.sprintf($exportModel::FILENAME_XML, $context['lang']);
+                $items    = $exportModel->writeXml($context, $filename, $type);
+                if($items === 0) {
+                    continue;
+                }
+
+                $log['items']+= $items;
+                if ($this->schemaValidate($filename, $exportModel::XSD)) {
+                    $files[] = $filename;
+                } else {
+                    $this->fileError($filename);
+
+                    $errors = Mage::helper('Antidot/XmlWriter')->getErrors();
+                    $this->log('xml schema not valid '.print_r($errors, true));
+                    Mage::helper('Antidot')->sendMail('Export failed', print_r($errors, true));
+                    foreach($errors as $error)
+                        $log['error'][] = $error;
+                    continue;
+                }
             }
 
-            $log['items']+= $items;
-            if ($this->schemaValidate($filename, $exportModel::XSD)) {
-                $files[] = $filename;
+            if($log['items'] === 0) {
+                return;
+            }
+
+            $log['reference'] = 'unknown';
+            if(!empty($files)) {
+                $filenameZip = $type === self::GENERATE_INC ? $exportModel::FILENAME_ZIP_INC : $exportModel::FILENAME_ZIP;
+                $filename = $this->compress($files, $filenameZip);
+                $log['reference'] = md5($filename);
+                $this->send($filename);
+
+                $log['status'] = 'SUCCESS';
             } else {
-                $this->fileError($filename);
+                $log['status'] = 'FAILED';
+                $lastError = current(Mage::helper('Antidot/XmlWriter')->getErrors());
+                if ($lastError)
+                   $log['error'][] = $lastError;
+            }
 
-                $errors = Mage::helper('Antidot/XmlWriter')->getErrors();
-                $this->log('xml schema not valid '.print_r($errors, true));
-                Mage::helper('Antidot')->sendMail('Export failed', print_r($errors, true));
-                continue;
+            if(file_exists($filename)) {
+                unlink($filename);
             }
         }
-
-        if($log['items'] === 0) {
-            return;
-        }
-        
-        $log['reference'] = 'unknown';
-        if(!empty($files)) {
-            $filenameZip = $type === self::GENERATE_INC ? $exportModel::FILENAME_ZIP_INC : $exportModel::FILENAME_ZIP;
-            $filename = $this->compress($files, $filenameZip);
-            $log['reference'] = md5($filename);
-            $this->send($filename);
-
-            $log['status'] = 'SUCCESS';
-            $log['error'] = '';
-        } else {
+        catch(Exception $ex)
+        {
+            $log['error'][] = $ex->getMessage();
             $log['status'] = 'FAILED';
-            $log['error'] = current(Mage::helper('Antidot/XmlWriter')->getErrors());
-        }
-        if(file_exists($filename)) {
-            unlink($filename);
         }
         
         $log['end'] = time();
         $this->log('generate '.$exportModel::TYPE.' '.$context['owner']);
         $this->log('end');
-        
-        Mage::helper('Antidot/LogExport')->add($log['reference'], $type, $exportModel::TYPE, $log['begin'], $log['end'], $log['items'], $log['status'], $log['error']);
+
+        Mage::helper('Antidot/LogExport')->add($log['reference'], $type, $exportModel::TYPE, $log['begin'], $log['end'], $log['items'], $log['status'], implode(',', $log['error']));
     }
 
     /**

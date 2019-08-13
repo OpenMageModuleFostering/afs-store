@@ -42,6 +42,7 @@ class MDN_Antidot_Block_System_Config_Form_Field_Array_Facet extends Mage_Adminh
      */
     protected function _renderCellTemplate($columnName)
     {
+
         $inputName  = $this->getElement()->getName() . '[#{_id}]['.$columnName.']';
         switch($columnName) {
             case 'facet':
@@ -129,4 +130,33 @@ class MDN_Antidot_Block_System_Config_Form_Field_Array_Facet extends Mage_Adminh
             'selected="selected"'
         );
     }
+
+    /**
+     * Override this parent method to avoid conversion from & => &amp;
+     *
+     *
+     * @return array
+     */
+    public function getArrayRows()
+    {
+        if (null !== $this->_arrayRowsCache) {
+            return $this->_arrayRowsCache;
+        }
+        $result = array();
+        /** @var Varien_Data_Form_Element_Abstract */
+        $element = $this->getElement();
+        if ($element->getValue() && is_array($element->getValue())) {
+            foreach ($element->getValue() as $rowId => $row) {
+                //foreach ($row as $key => $value) {
+                //    $row[$key] = $this->escapeHtml($value);
+                //}
+                $row['_id'] = $rowId;
+                $result[$rowId] = new Varien_Object($row);
+                $this->_prepareArrayRow($result[$rowId]);
+            }
+        }
+        $this->_arrayRowsCache = $result;
+        return $this->_arrayRowsCache;
+    }
+
 }
